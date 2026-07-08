@@ -751,6 +751,20 @@ except NetworkError:
 
 ---
 
+---
+
+## 文档
+
+| 文档 | 说明 |
+|------|------|
+| [API 总入口](docs/README.md) | 31 个端点速查表 + API 基本信息 |
+| [可用区 API](docs/api/01-regions/) | 2 个端点 — 可用区列表/详情（含实测 Zone/Continent/Country 枚举） |
+| [产品 API](docs/api/02-products/) | 4 个端点 — 产品列表/详情/价格/功能比较（含 25 项 target_id 映射） |
+| [云服务器生命周期](docs/api/03-cloud-lifecycle/) | 4 个端点 — 列表/详情/订购/镜像（含 status/paymentCycle 枚举） |
+| [云服务器管理](docs/api/04-cloud-management/) | 13 个端点 — 续费/升降级/销毁/重装/控制台等 |
+| [其他](docs/api/05-other/) | 1 个端点 — 余额查询 |
+| [海外加速](docs/api/06-accelerator/) | 7 个端点 — 列表/订购/续费/升级/修改IP端口（含 area/region 枚举） |
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
