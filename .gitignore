@@ -1,0 +1,28 @@
+# 凭据文件（包含 API Key）
+config.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+
+# 临时文件
+tmp/
+
+# 私有插件模块
+zhaomu_deploy/
+
+# 工具内部文件
+.omo/
+.codegraph/
+.playwright-mcp/
+.review/
+.sisyphus/
+opencode.json
+AGENTS.md
+CONTEXT.md
+docs/adr/
