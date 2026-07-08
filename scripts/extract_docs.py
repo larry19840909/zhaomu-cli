@@ -49,16 +49,41 @@ def discover_pages(page):
 
 
 def extract_page(page):
-    """Extract clean markdown from the current page's .markdown-body."""
+    """Extract clean markdown from the current page's .markdown-body.
+    
+    Uses textContent (not innerText) to avoid UTF-8 multi-byte corruption
+    that occurs when innerText reflows text across DOM boundaries.
+    Tables are extracted via direct DOM traversal instead of relying on
+    innerText's tab-separated rendering.
+    """
     return page.evaluate("""() => {
         const el = document.querySelector('.markdown-body');
         if (!el) return null;
-        const title = document.title.replace('--ShowDoc', '');
+        const title = document.title.replace('--ShowDoc', '').trim();
         const children = Array.from(el.children);
         const lines = ['# ' + title, ''];
+
+        // Helper: extract <table> to markdown table using textContent
+        function extractTable(tableEl) {
+            const rows = Array.from(tableEl.querySelectorAll('tr'));
+            if (rows.length === 0) return;
+            const headerCells = rows[0].querySelectorAll('th, td');
+            if (headerCells.length === 0) return;
+            const headers = Array.from(headerCells).map(h => h.textContent.trim());
+            lines.push('| ' + headers.join(' | ') + ' |');
+            lines.push('|' + headers.map(() => '--------').join('|') + '|');
+            for (let r = 1; r < rows.length; r++) {
+                const cells = Array.from(rows[r].querySelectorAll('td'));
+                lines.push('| ' + cells.map(td => td.textContent.trim()).join(' | ') + ' |');
+            }
+            lines.push('');
+        }
+
         children.forEach(c => {
             const tag = c.tagName;
-            const text = c.innerText.trim();
+            // textContent avoids innerText's CSS-aware text reflow which corrupts
+            // multi-byte UTF-8 sequences at node boundaries
+            const text = c.textContent.trim();
             if (tag === 'H5') {
                 lines.push('## ' + text, '');
             } else if (tag === 'UL') {
@@ -69,22 +94,21 @@ def extract_page(page):
                 } else {
                     lines.push(text, '');
                 }
-            } else if (tag === 'DIV' && text.includes('\\t')) {
-                const rows = text.split('\\n');
-                const cols = rows[0].split('\\t');
-                lines.push('| ' + cols.join(' | ') + ' |');
-                lines.push('|' + cols.map(() => '--------').join('|') + '|');
-                for (let r = 1; r < rows.length; r++) {
-                    lines.push('| ' + rows[r].split('\\t').join(' | ') + ' |');
-                }
-                lines.push('');
+            } else if (tag === 'TABLE') {
+                extractTable(c);
             } else if (tag === 'PRE') {
                 lines.push('```json');
                 lines.push(text);
                 lines.push('```');
                 lines.push('');
             } else if (tag === 'DIV' || tag === 'P') {
-                lines.push(text, '');
+                // Check if div/p contains a table
+                const table = c.querySelector('table');
+                if (table) {
+                    extractTable(table);
+                } else {
+                    lines.push(text, '');
+                }
             }
         });
         let result = lines.join('\\n').replace(/\\n{3,}/g, '\\n\\n').trim();
