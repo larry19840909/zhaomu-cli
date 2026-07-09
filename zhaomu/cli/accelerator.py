@@ -1,4 +1,5 @@
 import datetime
+import json
 
 import click
 
@@ -82,6 +83,7 @@ def accelerator_order(client: ZhaomuClient, product, region, ip, port, area, per
     if not result.success:
         click.echo(f"Error: {result.message}", err=True)
         raise SystemExit(1)
+    click.echo(result.message)
 
 
 @accelerator.command("renew")
@@ -98,6 +100,7 @@ def accelerator_renew(client: ZhaomuClient, accelerator_id, period):
     if not result.success:
         click.echo(f"Error: {result.message}", err=True)
         raise SystemExit(1)
+    click.echo(result.message)
 
 
 @accelerator.command("upgrade")
@@ -114,6 +117,7 @@ def accelerator_upgrade(client: ZhaomuClient, accelerator_id, period):
     if not result.success:
         click.echo(f"Error: {result.message}", err=True)
         raise SystemExit(1)
+    click.echo(result.message)
 
 
 @accelerator.command("modify-ip")
@@ -132,6 +136,7 @@ def accelerator_modify_ip(client: ZhaomuClient, accelerator_id, ip, area):
     if not result.success:
         click.echo(f"Error: {result.message}", err=True)
         raise SystemExit(1)
+    click.echo(result.message)
 
 
 @accelerator.command("modify-port")
@@ -149,6 +154,7 @@ def accelerator_modify_port(client: ZhaomuClient, accelerator_id, port):
     if not result.success:
         click.echo(f"Error: {result.message}", err=True)
         raise SystemExit(1)
+    click.echo(result.message)
 
 
 @accelerator.command("traffic-usage")
@@ -195,30 +201,33 @@ def accelerator_traffic_usage(ctx, accelerator_id):
 
     accelerators.sort(key=lambda a: a.id)
 
+    # 构建 id → ip 映射
+    ip_map = {a.id: a.ip for a in accelerators}
+
+    # 确保 Web 登录
     web = ZhaomuWebClient(session_file=web_session_file or None)
     try:
         _ensure_web_login(web)
 
-        all_data: dict[int, list[dict]] = {}
-        errors: dict[int, str] = {}
-
-        for acc in accelerators:
-            try:
-                raw = web.traffic_usage(acc.id)
-                all_data[acc.id] = raw if raw else []
-            except Exception as e:
-                errors[acc.id] = str(e)
-
-        if json_output({
-            str(k): [{"Date": r.Date, "Traffic": r.Traffic, "BillingState": r.BillingState}
-                     for r in TrafficUsage._from_list(v)]
-            for k, v in all_data.items()
-        }):
-            web.close()
+        # JSON 模式：收集全部数据后统一输出
+        if ctx.meta.get("zhaomu_json"):
+            all_data: dict[int, list[dict]] = {}
+            for acc in accelerators:
+                try:
+                    raw = web.traffic_usage(acc.id)
+                    all_data[acc.id] = raw if raw else []
+                except Exception:
+                    all_data[acc.id] = []
+            click.echo(json.dumps({
+                str(k): [{"Date": r.Date, "Traffic": r.Traffic, "BillingState": r.BillingState}
+                         for r in TrafficUsage._from_list(v)]
+                for k, v in all_data.items()
+            }, ensure_ascii=False, indent=2, default=str))
             api_client.close()
             return
 
-        _show_pivot_table(accelerators, all_data, errors)
+        # 交互模式：串行查询，每完成一个立刻输出一行
+        _show_pivot_table_streaming_serial(web, accelerators, ip_map)
 
     except AuthError as e:
         click.echo(f"认证失败: {e}", err=True)
@@ -283,26 +292,35 @@ def _show_single_traffic(aid: int, session_file: str = ""):
         web.close()
 
 
-def _show_pivot_table(accelerators, all_data: dict[int, list[dict]], errors: dict[int, str]):
-    """展示透视表：行=ID，列=日期，格=流量，含汇总行和汇总列。"""
-    if not all_data and not errors:
-        click.echo("所有加速器均无流量数据。")
+def _show_pivot_table_streaming_serial(web, accelerators, ip_map: dict[int, str]):
+    """串行查询每个加速器，完成一个立刻输出一行（非 JSON 模式）。"""
+    if ip_map is None:
+        ip_map = {}
+
+    # 先查询第一个加速器确定日期布局
+    if not accelerators:
         return
 
-    # 收集所有日期（并集），按时间戳排序
-    all_dates: set[int] = set()
-    for records in all_data.values():
-        for r in records:
-            ts = r.get("Date", 0)
-            if ts:
-                all_dates.add(ts)
-    sorted_dates = sorted(all_dates)
+    first = accelerators[0]
+    try:
+        raw = web.traffic_usage(first.id)
+        first_records = raw if raw else []
+    except Exception:
+        click.echo(f"#{first.id}: 查询失败", err=True)
+        return
+
+    # 从第一个加速器的数据构建日期集
+    date_set: set[int] = set()
+    for r in first_records:
+        ts = r.get("Date", 0)
+        if ts:
+            date_set.add(ts)
+    sorted_dates = sorted(date_set)
 
     if not sorted_dates:
         click.echo("暂无流量数据。")
         return
 
-    # 日期显示格式
     date_labels = []
     for ts in sorted_dates:
         try:
@@ -310,42 +328,27 @@ def _show_pivot_table(accelerators, all_data: dict[int, list[dict]], errors: dic
         except (OSError, ValueError):
             date_labels.append(str(ts))
 
-    # 构建每行的流量数据 {id: {ts: traffic}}
-    traffic_map: dict[int, dict[int, float]] = {}
-    for acc_id, records in all_data.items():
-        traffic_map[acc_id] = {}
-        for r in records:
-            ts = r.get("Date", 0)
-            val = r.get("Traffic", 0)
-            traffic_map[acc_id][ts] = float(val) if val else 0.0
-
-    # 计算列宽
+    # 列宽（用全部加速器的 IP/ID 来计算）
     id_width = max(10, max((len(str(a.id)) for a in accelerators), default=6) + 2)
+    ip_width = max(8, max((len(ip_map.get(a.id, "—")) for a in accelerators), default=4) + 2)
     cell_width = max(8, max((len(lbl) for lbl in date_labels), default=6) + 3)
     summary_width = 8
+    total_width = id_width + ip_width + len(date_labels) * cell_width + summary_width
 
-    # 表头
-    header_id = "加速器 #".ljust(id_width)
-    header_cells = "".join(lbl.center(cell_width) for lbl in date_labels)
-    header_summary = "汇总".center(summary_width)
-    click.echo(f"{header_id}{header_cells}{header_summary}")
-    click.echo("-" * (id_width + len(date_labels) * cell_width + summary_width))
+    # 打印表头
+    click.echo(f"{'加速器 #'.ljust(id_width)}{'IP'.ljust(ip_width)}{''.join(lbl.center(cell_width) for lbl in date_labels)}{'汇总'.center(summary_width)}")
+    click.echo("-" * total_width)
 
-    # 数据行
     column_totals = [0.0] * len(sorted_dates)
     grand_total = 0.0
 
-    for acc in accelerators:
-        aid = acc.id
-        if aid in errors:
-            # 查询失败：显示 ERR
-            err_cells = "".join("ERR".center(cell_width) for _ in sorted_dates)
-            err_summary = "ERR".center(summary_width)
-            row = f"{str(aid).ljust(id_width)}{err_cells}{err_summary}"
-            click.echo(row)
-            continue
-
-        tmap = traffic_map.get(aid, {})
+    def _print_row(aid, ip_str, records):
+        nonlocal grand_total
+        tmap: dict[int, float] = {}
+        for r in records:
+            ts = r.get("Date", 0)
+            val = r.get("Traffic", 0)
+            tmap[ts] = float(val) if val else 0.0
         row_sum = 0.0
         cells = []
         for i, ts in enumerate(sorted_dates):
@@ -354,15 +357,26 @@ def _show_pivot_table(accelerators, all_data: dict[int, list[dict]], errors: dic
             column_totals[i] += val
             row_sum += val
         grand_total += row_sum
+        click.echo(f"{str(aid).ljust(id_width)}{ip_str}{''.join(cells)}{f'{row_sum:.1f}'.center(summary_width)}")
 
-        row_id = str(aid).ljust(id_width)
-        row_cells = "".join(cells)
-        row_sum_str = f"{row_sum:.1f}".center(summary_width)
-        click.echo(f"{row_id}{row_cells}{row_sum_str}")
+    # 打印第一个加速器的行
+    ip_str = ip_map.get(first.id, "—").ljust(ip_width)
+    _print_row(first.id, ip_str, first_records)
+
+    # 串行查询剩余加速器，完成一个立刻打印一行
+    for acc in accelerators[1:]:
+        aid = acc.id
+        ip_str = ip_map.get(aid, "—").ljust(ip_width)
+        try:
+            raw = web.traffic_usage(aid)
+            records = raw if raw else []
+            _print_row(aid, ip_str, records)
+        except Exception:
+            err_cells = "".join("ERR".center(cell_width) for _ in sorted_dates)
+            click.echo(f"{str(aid).ljust(id_width)}{ip_str}{err_cells}{'ERR'.center(summary_width)}")
 
     # 合计行
-    click.echo("-" * (id_width + len(date_labels) * cell_width + summary_width))
-    total_id = "合计".ljust(id_width)
+    click.echo("-" * total_width)
+    total_ip = "".ljust(ip_width)
     total_cells = "".join(f"{col_sum:.1f}".center(cell_width) for col_sum in column_totals)
-    total_summary = f"{grand_total:.1f}".center(summary_width)
-    click.echo(f"{total_id}{total_cells}{total_summary}")
+    click.echo(f"{'合计'.ljust(id_width)}{total_ip}{total_cells}{f'{grand_total:.1f}'.center(summary_width)}")

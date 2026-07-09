@@ -1,7 +1,7 @@
 import click
 
 from zhaomu.cli import handle_api_errors, json_output, pass_client
-from zhaomu.cli.resolvers import resolve_by_ip, resolve_region, resolve_product, resolve_image
+from zhaomu.cli.resolvers import resolve_by_ip, resolve_product, resolve_image, resolve_regions_by_city, filter_by_zone
 from zhaomu.client import ZhaomuClient
 from zhaomu.models.cloud.request import (
     OrderRequest, RenewRequest, UpgradeRequest, UpgradePriceRequest,
@@ -71,7 +71,8 @@ def cloud_info(client: ZhaomuClient, instance):
 
 
 @cloud.command("order")
-@click.option("-r", "--region", required=True, help="Region (city code, name, or ID)")
+@click.option("-r", "--region", required=True, help="City name or region ID")
+@click.option("--zone", default=None, help="Zone code when city has multiple (e.g. V)")
 @click.option("-p", "--product", required=True, help="Product (e.g. 1C-1G, or ID)")
 @click.option("--image", required=True, help="Image (name or ID)")
 @click.option("--disk", type=int, required=True, help="System disk size (GB)")
@@ -80,9 +81,11 @@ def cloud_info(client: ZhaomuClient, instance):
 @click.option("--period", type=int, default=1, help="Payment cycle (1=Monthly,2=Quarterly,3=Half-year,4=Yearly,5=Hourly)")
 @pass_client
 @handle_api_errors
-def cloud_order(client: ZhaomuClient, region, product, image, disk, disk_data, bandwidth, period):
+def cloud_order(client: ZhaomuClient, region, zone, product, image, disk, disk_data, bandwidth, period):
     """Order a new cloud server."""
-    rid = resolve_region(client, region)
+    rids = resolve_regions_by_city(client, region)
+    rids = filter_by_zone(client, rids, zone)
+    rid = rids[0]
     pid = resolve_product(client, rid, product)
     iid = resolve_image(client, pid, image)
     req = OrderRequest(productId=pid, disk=disk, diskData=disk_data,
@@ -103,13 +106,15 @@ def cloud_order(client: ZhaomuClient, region, product, image, disk, disk_data, b
 
 @cloud.command("images")
 @click.option("-p", "--product", required=True, help="Product (e.g. 1C-1G, or ID)")
-@click.option("-r", "--region", required=True, help="Region (city code, name, or ID)")
+@click.option("-r", "--region", required=True, help="City name or region ID")
+@click.option("--zone", default=None, help="Zone code when city has multiple (e.g. V)")
 @pass_client
 @handle_api_errors
-def cloud_images(client: ZhaomuClient, product, region):
+def cloud_images(client: ZhaomuClient, product, region, zone):
     """List available images for a product."""
-    rid = resolve_region(client, region)
-    pid = resolve_product(client, rid, product)
+    rids = resolve_regions_by_city(client, region)
+    rids = filter_by_zone(client, rids, zone)
+    pid = resolve_product(client, rids[0], product)
     result = client.cloud.images(pid)
     if json_output([{"id": img.id, "name": img.name, "type": img.type} for img in result]):
         return
@@ -133,6 +138,7 @@ def cloud_renew(client: ZhaomuClient, instance, period):
     if not result.success:
         click.echo(f"Error: {result.message}", err=True)
         raise SystemExit(1)
+    click.echo(result.message)
 
 
 @cloud.command("upgrade")
@@ -156,6 +162,7 @@ def cloud_upgrade(client: ZhaomuClient, instance, product, disk, disk_data, band
     if not result.success:
         click.echo(f"Error: {result.message}", err=True)
         raise SystemExit(1)
+    click.echo(result.message)
 
 
 @cloud.command("upgrade-price")
@@ -190,6 +197,7 @@ def cloud_destroy(client: ZhaomuClient, instance):
     if not result.success:
         click.echo(f"Error: {result.message}", err=True)
         raise SystemExit(1)
+    click.echo(f"Destroyed: {result.message}")
 
 
 @cloud.command("reboot")
@@ -205,6 +213,7 @@ def cloud_reboot(client: ZhaomuClient, instance):
     if not result.success:
         click.echo(f"Error: {result.message}", err=True)
         raise SystemExit(1)
+    click.echo(result.message)
 
 
 @cloud.command("shutdown")
@@ -220,6 +229,7 @@ def cloud_shutdown(client: ZhaomuClient, instance):
     if not result.success:
         click.echo(f"Error: {result.message}", err=True)
         raise SystemExit(1)
+    click.echo(result.message)
 
 
 @cloud.command("rebuild")
@@ -237,6 +247,7 @@ def cloud_rebuild(client: ZhaomuClient, instance, image):
     if not result.success:
         click.echo(f"Error: {result.message}", err=True)
         raise SystemExit(1)
+    click.echo(result.message)
 
 
 @cloud.command("rebuild-images")
@@ -269,6 +280,7 @@ def cloud_reset_password(client: ZhaomuClient, instance, password):
     if not result.success:
         click.echo(f"Error: {result.message}", err=True)
         raise SystemExit(1)
+    click.echo(result.message)
 
 
 @cloud.command("console")
@@ -299,6 +311,7 @@ def cloud_auto_renew(client: ZhaomuClient, instance, enable):
     if not result.success:
         click.echo(f"Error: {result.message}", err=True)
         raise SystemExit(1)
+    click.echo(result.message)
 
 
 @cloud.command("note")
@@ -316,6 +329,7 @@ def cloud_note(client: ZhaomuClient, instance, note_text):
     if not result.success:
         click.echo(f"Error: {result.message}", err=True)
         raise SystemExit(1)
+    click.echo(result.message)
 
 
 @cloud.command("refresh-traffic")
@@ -331,3 +345,4 @@ def cloud_refresh_traffic(client: ZhaomuClient, instance):
     if not result.success:
         click.echo(f"Error: {result.message}", err=True)
         raise SystemExit(1)
+    click.echo(result.message)

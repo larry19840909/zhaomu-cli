@@ -58,15 +58,21 @@ Instead of numeric IDs, most commands accept human-readable values. See [resolve
 
 ### Region
 
-`-r / --region` accepts any of the following:
+`-r / --region` accepts:
 
 | Form | Example | How it resolves |
 |------|---------|----------------|
-| Numeric ID | `780` | Used directly |
-| City name (Chinese) | `南昌`, `东京` | Substring match on `city` |
-| City name (English) | `Singapore`, `Tokyo` | Substring match on `cityEn` |
+| Numeric ID | `780` | Single zone — used directly |
+| City name (Chinese) | `南昌`, `纽约` | Matches ALL zones in that city |
+| City name (English) | `Singapore`, `Tokyo` | Matches ALL zones in that city |
 
-Run `zhaomu region list` to see all available regions.
+When a city name matches multiple zones, commands that list data (`product list`, `product compare`) query and merge results from all zones. Use `--zone` to narrow to specific zones:
+
+```bash
+zhaomu product list -r 纽约 --zone V,R
+```
+
+Run `zhaomu region list` to see all available regions and their zone codes.
 
 ### Product
 
@@ -128,19 +134,22 @@ zhaomu --json region info 780
 
 ### zhaomu product list
 
-List cloud server products in a region.
+List cloud server products in a region. When a city name matches multiple zones, queries all zones and merges results by spec. Output includes a **Zone** column showing which zones carry each product.
 
 ```bash
 zhaomu product list -r 780
-zhaomu product list -r 南昌
-zhaomu product list -r Tokyo
+zhaomu product list -r 纽约
+zhaomu product list -r 纽约 --zone V,R
 ```
+
+Output columns: ID, CPU, RAM, Disk, Traffic, Monthly, Zone, Tags.
 
 **Options:**
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `-r, --region` | *(required)* | Region ID, city name (CN/EN) |
+| `-r, --region` | *(required)* | City name or region ID |
+| `--zone` | — | Comma-separated zone codes (e.g. `V,R`) |
 
 ### zhaomu product info
 
@@ -151,7 +160,8 @@ Show product details.
 zhaomu product info 9723
 
 # By spec name — region required for scoping
-zhaomu product info 2C-4G -r 南昌
+zhaomu product info 2C-4G -r 纽约
+zhaomu product info 2C-4G -r 纽约 --zone V
 ```
 
 **Options:**
@@ -159,6 +169,7 @@ zhaomu product info 2C-4G -r 南昌
 | Option | Default | Description |
 |--------|---------|-------------|
 | `-r, --region` | — | Required for name resolution |
+| `--zone` | — | Zone code when city has multiple |
 
 ### zhaomu product price
 
@@ -169,7 +180,8 @@ Get product pricing across payment cycles.
 zhaomu product price 9723
 
 # By spec name
-zhaomu product price 2C-8G -r 南昌
+zhaomu product price 2C-8G -r 纽约
+zhaomu product price 2C-8G -r 纽约 --zone V
 ```
 
 **Options:**
@@ -177,21 +189,24 @@ zhaomu product price 2C-8G -r 南昌
 | Option | Default | Description |
 |--------|---------|-------------|
 | `-r, --region` | — | Required for name resolution |
+| `--zone` | — | Zone code when city has multiple |
 
 ### zhaomu product compare
 
-Compare feature support across products in a region.
+Compare feature support across products in a region. When a city has multiple zones, shows a per-zone comparison table with zone codes and IDs — values are abbreviated (是/否/工单).
 
 ```bash
 zhaomu product compare -r 780
-zhaomu product compare -r 南昌
+zhaomu product compare -r 纽约
+zhaomu product compare -r 纽约 --zone V,R
 ```
 
 **Options:**
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `-r, --region` | *(required)* | Region ID or name |
+| `-r, --region` | *(required)* | City name or region ID |
+| `--zone` | — | Comma-separated zone codes (e.g. `V,R`) |
 
 ### zhaomu cloud list
 
@@ -220,14 +235,16 @@ List OS images available for ordering a product.
 
 ```bash
 zhaomu cloud images -r 780 -p 9723
-zhaomu cloud images -r 南昌 -p 2C-4G
+zhaomu cloud images -r 纽约 -p 2C-4G
+zhaomu cloud images -r 纽约 --zone V -p 2C-4G
 ```
 
 **Options:**
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `-r, --region` | *(required)* | Region |
+| `-r, --region` | *(required)* | City name or region ID |
+| `--zone` | — | Zone code when city has multiple |
 | `-p, --product` | *(required)* | Product ID or spec name |
 
 ### zhaomu cloud order
@@ -236,20 +253,21 @@ Order a new cloud server.
 
 ```bash
 # Minimal
-zhaomu cloud order -r 780 -p 9723 -i 167
+zhaomu cloud order -r 780 -p 9723 --image 167 --disk 20
 
-# Full
-zhaomu cloud order -r 南昌 -p 2C-4G -i "Ubuntu Server 22.04" \
-    --disk 40 --period 1
+# With zone filter
+zhaomu cloud order -r 纽约 --zone V -p 1C-1G \
+    --image "Ubuntu 20.04" --disk 25 --period 1
 ```
 
 **Options:**
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `-r, --region` | *(required)* | Region |
+| `-r, --region` | *(required)* | City name or region ID |
+| `--zone` | — | Zone code when city has multiple |
 | `-p, --product` | *(required)* | Product ID or spec name |
-| `-i, --image` | *(required)* | Image ID or name |
+| `--image` | *(required)* | Image ID or name |
 | `--disk` | `20` | System disk size (GB) |
 | `--period` | `1` | Payment cycle (1=Monthly, 2=Quarterly, 3=Half-year, 4=Yearly) |
 
