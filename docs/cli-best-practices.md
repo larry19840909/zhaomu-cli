@@ -7,16 +7,13 @@
 首次使用需要 API Key，任选一种方式：
 
 ```bash
-# 方式一：配置文件（推荐）
-cat > config.json << 'EOF'
-{"apikey": "your_zhaomu_api_key"}
-EOF
+# 方式一：配置文件
+echo '{"apikey": "your_zhaomu_api_key"}' > config.json
+zhaomu -c config.json cloud list
 
-# 方式二：环境变量
-export ZHAOMU_APIKEY="your_zhaomu_api_key"
+# 方式二：环境变量（Windows PowerShell）
+$env:ZHAOMU_APIKEY = "your_zhaomu_api_key"
 ```
-
-将 `config.json` 加入 `.gitignore`，避免泄露。
 
 ## 2. 了解可用机房
 

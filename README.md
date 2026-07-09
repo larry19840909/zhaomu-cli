@@ -96,6 +96,12 @@ Instance commands accept ID or IP:
 
 ---
 
+## 快速上手
+
+从零到订购一台云服务器的完整流程，参见 **[CLI 最佳实践](docs/cli-best-practices.md)**。
+
+---
+
 ## CLI Reference
 
 All commands support `--json` for machine-readable output. Place `--json` before the subcommand:
