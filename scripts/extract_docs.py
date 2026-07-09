@@ -23,6 +23,41 @@ CATEGORIES = [
     (25, 31, "06-accelerator"),
 ]
 
+# Map Chinese page titles → English filenames
+FILENAME_MAP = {
+    "获取可用区列表": "list-regions",
+    "获取可用区信息": "get-region",
+    "获取云服务器产品列表": "list-products",
+    "获取云服务器产品信息": "get-product",
+    "获取云服务器产品价格": "get-product-price",
+    "获取功能参数比较": "compare-products",
+    "获取云服务器列表": "list-servers",
+    "获取云服务器信息": "get-server",
+    "订购云服务器": "order-server",
+    "获取订购云服务器的镜像": "get-order-images",
+    "续费云服务器": "renew-server",
+    "变更云服务器": "upgrade-server",
+    "获取变更云服务器价格": "get-upgrade-price",
+    "销毁云服务器": "destroy-server",
+    "重启/开机云服务器": "reboot-server",
+    "关机云服务器": "shutdown-server",
+    "重装云服务器": "rebuild-server",
+    "获取重装云服务器的镜像": "get-rebuild-images",
+    "重置云服务器密码": "reset-password",
+    "获取云服务器控制台": "get-console",
+    "设置云服务器自动续费": "set-auto-renew",
+    "修改云服务器用户备注": "set-note",
+    "刷新云服务器流量": "refresh-traffic",
+    "获取用户余额": "get-balance",
+    "获取海外服务器加速列表": "list-accelerators",
+    "获取海外服务器加速信息": "get-accelerator",
+    "订购海外服务器加速": "order-accelerator",
+    "续费海外服务器加速": "renew-accelerator",
+    "升级海外服务器加速": "upgrade-accelerator",
+    "修改海外服务器加速IP": "modify-accelerator-ip",
+    "修改海外服务器加速应用端口": "modify-accelerator-port",
+}
+
 
 def discover_pages(page):
     """Expand all sidebar sections, then return list of (page_id, name, index)."""
@@ -143,7 +178,7 @@ def main():
                     subdir = d
                     break
 
-            safe_name = name.replace("/", "_").replace("\\", "_").replace(":", "_")
+            safe_name = FILENAME_MAP.get(name, name.replace("/", "_").replace("\\", "_").replace(":", "_"))
             filename = f"{safe_name}.md"
             out_dir = os.path.join(DOCS_DIR, subdir)
             os.makedirs(out_dir, exist_ok=True)

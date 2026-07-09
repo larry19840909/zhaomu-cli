@@ -1,82 +1,81 @@
-# zhaomu API 文档
+# zhaomu API Reference
 
-> 服务商朝暮数据（zhaomu）的 REST API 完整参考。由 `scripts/extract_docs.py` 从 ShowDoc 自动提取，共 31 个端点。
+> Complete REST API reference for zhaomu (朝暮数据). Extracted from ShowDoc by `scripts/extract_docs.py` — 31 endpoints.
 
-## 快速开始
+## Quick Start
 
 ```python
 from zhaomu.client import ZhaomuClient
-# 从配置文件或环境变量创建客户端
 client = ZhaomuClient.from_config("config.json")
 ```
 
-## API 基本信息
+## API Basics
 
-- **Base URL**：`https://api.zhaomu.com`
-- **认证方式**：`Authorization: Bearer <apikey>`（静态 API Key，无需 token 刷新）
-- **HTTP 方法**：REST 风格（GET / POST / DELETE）
-- **响应格式**：
-  - **列表接口** → 直接返回 JSON 数组 `[{...}]`
-  - **操作接口** → `{"success": true/false, "message": "..."}`
-- **实例状态码**：1=开通中 2=运行中 3=已关机 4=已禁用 5=准备中
-- **付款周期**：1=月付 2=季付 3=半年付 4=年付 5=按小时
+- **Base URL**: `https://api.zhaomu.com`
+- **Authentication**: `Authorization: Bearer <apikey>` (static API key, no token refresh)
+- **HTTP Methods**: REST style (GET / POST / DELETE)
+- **Response Format**:
+  - **List endpoints** → JSON array `[{...}]`
+  - **Action endpoints** → `{"success": true/false, "message": "..."}`
+- **Instance Status**: 1=Provisioning 2=Running 3=Stopped 4=Disabled 5=Preparing
+- **Payment Cycles**: 1=Monthly 2=Quarterly 3=Semi-annual 4=Annual 5=Hourly
 
-## 端点速查
+## Endpoint Quick Reference
 
-| 分类 | 方法 | 路径 | 说明 | 文档 |
-|------|------|------|------|------|
-| 可用区 | GET | `/region` | 可用区列表 | [→](api/01-regions/获取可用区列表.md) |
-| 可用区 | GET | `/region/:id` | 可用区信息 | [→](api/01-regions/获取可用区信息.md) |
-| 产品 | GET | `/product/region/:id` | 某可用区产品列表 | [→](api/02-products/获取云服务器产品列表.md) |
-| 产品 | GET | `/product/:id` | 产品信息 | [→](api/02-products/获取云服务器产品信息.md) |
-| 产品 | GET | `/product/price/:id` | 产品价格 | [→](api/02-products/获取云服务器产品价格.md) |
-| 产品 | GET | `/compare/region/:id` | 产品参数比较 | [→](api/02-products/获取功能参数比较.md) |
-| 实例 | GET | `/cloud` | 云服务器列表 | [→](api/03-cloud-lifecycle/获取云服务器列表.md) |
-| 实例 | GET | `/cloud/:id` | 云服务器信息 | [→](api/03-cloud-lifecycle/获取云服务器信息.md) |
-| 实例 | POST | `/cloud/order` | 订购云服务器 | [→](api/03-cloud-lifecycle/订购云服务器.md) |
-| 实例 | GET | `/image/product/:id` | 获取可订购镜像 | [→](api/03-cloud-lifecycle/获取订购云服务器的镜像.md) |
-| 实例 | POST | `/cloud/renew/:id` | 续费 | [→](api/04-cloud-management/续费云服务器.md) |
-| 实例 | POST | `/cloud/upgrade/:id` | 变更配置 | [→](api/04-cloud-management/变更云服务器.md) |
-| 实例 | POST | `/cloud/upgrade-price/:id` | 变更价格 | [→](api/04-cloud-management/获取变更云服务器价格.md) |
-| 实例 | DELETE | `/cloud/destroy/:id` | 销毁 | [→](api/04-cloud-management/销毁云服务器.md) |
-| 实例 | POST | `/cloud/reboot/:id` | 重启/开机 | [→](api/04-cloud-management/重启_开机云服务器.md) |
-| 实例 | POST | `/cloud/shutdown/:id` | 关机 | [→](api/04-cloud-management/关机云服务器.md) |
-| 实例 | POST | `/cloud/rebuild/:id` | 重装系统 | [→](api/04-cloud-management/重装云服务器.md) |
-| 实例 | GET | `/image/cloud/:id` | 可重装镜像 | [→](api/04-cloud-management/获取重装云服务器的镜像.md) |
-| 实例 | POST | `/cloud/password/:id` | 重置密码 | [→](api/04-cloud-management/重置云服务器密码.md) |
-| 实例 | GET | `/cloud/novnc/:id` | noVNC 控制台 | [→](api/04-cloud-management/获取云服务器控制台.md) |
-| 管理 | POST | `/cloud/auto-renew/:id` | 设置自动续费 | [→](api/04-cloud-management/设置云服务器自动续费.md) |
-| 管理 | POST | `/cloud/note/:id` | 修改用户备注 | [→](api/04-cloud-management/修改云服务器用户备注.md) |
-| 管理 | POST | `/cloud/traffic/:id` | 刷新流量 | [→](api/04-cloud-management/刷新云服务器流量.md) |
-| 其他 | GET | `/other/balance` | 获取用户余额 | [→](api/05-other/获取用户余额.md) |
-| 加速 | POST | `/accelerator/order` | 订购海外加速 | [→](api/06-accelerator/订购海外服务器加速.md) |
-| 加速 | GET | `/accelerator` | 海外加速列表 | [→](api/06-accelerator/获取海外服务器加速列表.md) |
-| 加速 | GET | `/accelerator/:id` | 海外加速信息 | [→](api/06-accelerator/获取海外服务器加速信息.md) |
-| 加速 | POST | `/accelerator/renew/:id` | 续费海外加速 | [→](api/06-accelerator/续费海外服务器加速.md) |
-| 加速 | POST | `/accelerator/upgrade/:id` | 升级海外加速 | [→](api/06-accelerator/升级海外服务器加速.md) |
-| 加速 | POST | `/accelerator/modify/:id` | 修改加速 IP | [→](api/06-accelerator/修改海外服务器加速IP.md) |
-| 加速 | POST | `/accelerator/port/:id` | 修改加速端口 | [→](api/06-accelerator/修改海外服务器加速应用端口.md) |
+| Category | Method | Path | Description | Doc |
+|----------|--------|------|-------------|-----|
+| Regions | GET | `/region` | List regions | [→](api/01-regions/list-regions.md) |
+| Regions | GET | `/region/:id` | Get region info | [→](api/01-regions/get-region.md) |
+| Products | GET | `/product/region/:id` | List products in region | [→](api/02-products/list-products.md) |
+| Products | GET | `/product/:id` | Get product info | [→](api/02-products/get-product.md) |
+| Products | GET | `/product/price/:id` | Get product price | [→](api/02-products/get-product-price.md) |
+| Products | GET | `/compare/region/:id` | Compare product features | [→](api/02-products/compare-products.md) |
+| Servers | GET | `/cloud` | List cloud servers | [→](api/03-cloud-lifecycle/list-servers.md) |
+| Servers | GET | `/cloud/:id` | Get server info | [→](api/03-cloud-lifecycle/get-server.md) |
+| Servers | POST | `/cloud/order` | Order server | [→](api/03-cloud-lifecycle/order-server.md) |
+| Servers | GET | `/image/product/:id` | Get order images | [→](api/03-cloud-lifecycle/get-order-images.md) |
+| Servers | POST | `/cloud/renew/:id` | Renew server | [→](api/04-cloud-management/renew-server.md) |
+| Servers | POST | `/cloud/upgrade/:id` | Upgrade server | [→](api/04-cloud-management/upgrade-server.md) |
+| Servers | POST | `/cloud/upgrade-price/:id` | Get upgrade price | [→](api/04-cloud-management/get-upgrade-price.md) |
+| Servers | DELETE | `/cloud/destroy/:id` | Destroy server | [→](api/04-cloud-management/destroy-server.md) |
+| Servers | POST | `/cloud/reboot/:id` | Reboot / start | [→](api/04-cloud-management/reboot-server.md) |
+| Servers | POST | `/cloud/shutdown/:id` | Shutdown | [→](api/04-cloud-management/shutdown-server.md) |
+| Servers | POST | `/cloud/rebuild/:id` | Rebuild (reinstall OS) | [→](api/04-cloud-management/rebuild-server.md) |
+| Servers | GET | `/image/cloud/:id` | Get rebuild images | [→](api/04-cloud-management/get-rebuild-images.md) |
+| Servers | POST | `/cloud/password/:id` | Reset password | [→](api/04-cloud-management/reset-password.md) |
+| Servers | GET | `/cloud/novnc/:id` | noVNC console | [→](api/04-cloud-management/get-console.md) |
+| Management | POST | `/cloud/auto-renew/:id` | Set auto-renew | [→](api/04-cloud-management/set-auto-renew.md) |
+| Management | POST | `/cloud/note/:id` | Set user note | [→](api/04-cloud-management/set-note.md) |
+| Management | POST | `/cloud/traffic/:id` | Refresh traffic | [→](api/04-cloud-management/refresh-traffic.md) |
+| Other | GET | `/other/balance` | Get balance | [→](api/05-other/get-balance.md) |
+| Accelerator | POST | `/accelerator/order` | Order accelerator | [→](api/06-accelerator/order-accelerator.md) |
+| Accelerator | GET | `/accelerator` | List accelerators | [→](api/06-accelerator/list-accelerators.md) |
+| Accelerator | GET | `/accelerator/:id` | Get accelerator info | [→](api/06-accelerator/get-accelerator.md) |
+| Accelerator | POST | `/accelerator/renew/:id` | Renew accelerator | [→](api/06-accelerator/renew-accelerator.md) |
+| Accelerator | POST | `/accelerator/upgrade/:id` | Upgrade accelerator | [→](api/06-accelerator/upgrade-accelerator.md) |
+| Accelerator | POST | `/accelerator/modify/:id` | Modify accelerator IP | [→](api/06-accelerator/modify-accelerator-ip.md) |
+| Accelerator | POST | `/accelerator/port/:id` | Modify accelerator port | [→](api/06-accelerator/modify-accelerator-port.md) |
 
-## 文档目录
+## Directory Structure
 
 ```
 docs/
-├── README.md                     # 本文件 — API 总入口
+├── README.md                     # This file — API reference index
 └── api/
-    ├── 01-regions/               # 可用区（2 个端点）
-    ├── 02-products/              # 产品（4 个端点）
-    ├── 03-cloud-lifecycle/       # 云服务器生命周期（4 个端点）
-    ├── 04-cloud-management/      # 云服务器管理（13 个端点）
-    ├── 05-other/                 # 其他（1 个端点）
-    └── 06-accelerator/           # 海外服务器加速（7 个端点）
+    ├── 01-regions/               # Regions (2 endpoints)
+    ├── 02-products/              # Products (4 endpoints)
+    ├── 03-cloud-lifecycle/       # Server lifecycle (4 endpoints)
+    ├── 04-cloud-management/      # Server management (13 endpoints)
+    ├── 05-other/                 # Other (1 endpoint)
+    └── 06-accelerator/           # Accelerator (7 endpoints)
 ```
 
-## 更新文档
+## Updating Docs
 
-API 文档变更后，运行脚本重新提取：
+After API doc changes, re-extract with:
 
 ```bash
 python scripts/extract_docs.py
 ```
 
-该脚本自动从 ShowDoc 侧边栏发现所有页面并提取为 markdown。
+The script discovers all pages from the ShowDoc sidebar and extracts them as markdown.
