@@ -1,146 +1,144 @@
-# CLI 最佳实践
+# CLI Best Practices
 
-从零开始，完成配置→选型→订购→销毁的完整流程。
+End-to-end walkthrough: setup → select → order → destroy.
 
-## 1. 初始化配置
+## 1. Configuration
 
-首次使用需要 API Key，任选一种方式：
+You need an API key. Pick one method:
 
 ```bash
-# 方式一：配置文件
+# Option A: config file
 echo '{"apikey": "your_zhaomu_api_key"}' > config.json
 zhaomu -c config.json cloud list
 
-# 方式二：环境变量（Windows PowerShell）
+# Option B: environment variable (Windows PowerShell)
 $env:ZHAOMU_APIKEY = "your_zhaomu_api_key"
 ```
 
-## 2. 了解可用机房
+## 2. Browse Regions
 
 ```bash
 zhaomu region list
 ```
 
-输出所有可用区，关注 `City`、`Country`、`Zone` 列。记下目标城市的名称（如 `纽约`）。
+Scan the `City`, `Country`, and `Zone` columns. Note your target city name (e.g. `纽约`).
 
-## 3. 对比同城各可用区特性
+## 3. Compare Zones Within a City
 
-同一城市可能有多个 zone（线路），功能差异很大。先对比再看产品：
+A city can have multiple zones (network routes) with very different features. Compare before browsing products:
 
 ```bash
 zhaomu product compare -r 纽约
 ```
 
-输出 per-zone 对照表，重点关注：
+The per-zone table shows key differentiators:
 
-| 需关注 | 对应行 |
-|--------|--------|
-| 是否支持退款 | 销毁退款 |
-| IP 类型 | IP属性（原生IP / 机房IP） |
-| 操作系统 | Windows系统 |
-| 端口限制 | 端口限制（是否禁用25端口） |
+| What to check | Look for |
+|---------------|----------|
+| Refund on destroy | 销毁退款 (是/否) |
+| IP type | IP属性 (原生IP / 机房IP / 住宅IP) |
+| Windows support | Windows系统 (是/否) |
+| Port restrictions | 端口限制 (is port 25 blocked?) |
 
-选出符合需求的 zone（如 V 和 R）。
+Pick the zones that meet your needs (e.g. V and R).
 
-## 4. 查看产品列表
+## 4. Browse Products
 
 ```bash
 zhaomu product list -r 纽约 --zone V,R
 ```
 
-输出按 **zone → 月费升序** 排列。关注 `Tags` 列（原生IP、住宅IP 等）和 `Zone` 列。
+Sorted by **zone → price ascending**. Pay attention to the `Tags` and `Zone` columns.
 
-## 5. 查看可选镜像
+## 5. Check Available Images
 
 ```bash
 zhaomu cloud images -r 纽约 --zone R -p 10781
 ```
 
-确认目标操作系统（如 Ubuntu 20.04）的镜像 ID。
+Note the image ID for your target OS (e.g. Ubuntu 20.04).
 
-## 6. 检查余额
+## 6. Check Balance
 
 ```bash
 zhaomu balance
 ```
 
-确保余额 ≥ 目标产品月费。使用 `--json` 可精确获取数值：
+Make sure your balance covers the product's monthly price. Use `--json` for scripts:
 
 ```bash
 zhaomu --json balance
 # → {"balance": 100.5}
 ```
 
-## 7. 订购
+## 7. Order
 
 ```bash
 zhaomu cloud order -r 纽约 --zone R -p 10781 \
     --image 4074 --disk 40 --period 1
 ```
 
-参数说明：
+| Option | Meaning | Values |
+|--------|---------|--------|
+| `-r` | City name or region ID | `纽约`, `780` |
+| `--zone` | Zone code(s) | `V`, `R`, `V,R` |
+| `-p` | Product ID or spec | `10781`, `1C-1G` |
+| `--image` | Image ID | `4074` |
+| `--disk` | System disk GB | `20`–`40` |
+| `--period` | Billing cycle | `1`=Monthly, `2`=Quarterly, `3`=Semi-annual, `4`=Annual |
 
-| 参数 | 含义 | 可选值 |
-|------|------|--------|
-| `-r` | 城市名或 region ID | `纽约`, `780` |
-| `--zone` | zone 码 | `V`, `R`, `V,R` |
-| `-p` | 产品 ID 或 spec | `10781`, `1C-1G` |
-| `--image` | 镜像 ID | `4074` |
-| `--disk` | 系统盘 GB | `20`~`40` |
-| `--period` | 付款周期 | `1`=月付, `2`=季付, `3`=半年付, `4`=年付 |
-
-## 8. 查看状态
+## 8. Check Status
 
 ```bash
 zhaomu cloud info 281516
 ```
 
-关注 `Status` 字段：`Running` 表示已就绪，`Provisioning` 表示开通中。
+Watch the `Status` field: `Running` = ready, `Provisioning` = setting up.
 
 ```bash
-# 列出所有实例
+# List all instances
 zhaomu cloud list
 ```
 
-## 9. 销毁
+## 9. Destroy
 
 ```bash
 zhaomu cloud destroy 281516
 ```
 
-> **注意**：仅支持退款的 zone 销毁后余额会退回。销毁前在 `product compare` 中确认「销毁退款」为"是"。
+> **Note**: Only zones with 销毁退款 (refund on destroy) return the balance. Verify with `product compare` first.
 
-## 其他常用操作
+## Other Common Operations
 
 ```bash
-# 重装系统
-zhaomu cloud rebuild-images 281516          # 查看可重装镜像
-zhaomu cloud rebuild 281516 --image 842     # 执行重装
+# Reinstall OS
+zhaomu cloud rebuild-images 281516          # list rebuild images
+zhaomu cloud rebuild 281516 --image 842     # execute
 
-# 开关机
-zhaomu cloud reboot 281516                  # 重启/开机
-zhaomu cloud shutdown 281516                # 关机
+# Power management
+zhaomu cloud reboot 281516                  # reboot / start
+zhaomu cloud shutdown 281516                # shutdown
 
-# 重置密码
-zhaomu cloud reset-password 281516          # 交互式输入新密码
+# Reset password (interactive)
+zhaomu cloud reset-password 281516
 
-# 升降级
-zhaomu cloud upgrade-price 281516 --disk 50 # 询价
-zhaomu cloud upgrade 281516 --disk 50       # 执行
+# Upgrade / downgrade
+zhaomu cloud upgrade-price 281516 --disk 50 # quote
+zhaomu cloud upgrade 281516 --disk 50       # apply
 
-# VNC 控制台
+# VNC console
 zhaomu cloud console 281516
 
-# 续费
-zhaomu cloud renew 281516 --period 4        # 年付续费
+# Renew
+zhaomu cloud renew 281516 --period 4        # annual renewal
 
-# 备注
+# Note / label
 zhaomu cloud note 281516 "production-web"
 ```
 
-## JSON 模式
+## JSON Mode
 
-所有命令支持 `--json`（放在子命令前面），适合脚本：
+All commands support `--json` (placed before the subcommand). Ideal for scripting:
 
 ```bash
 zhaomu --json balance | jq '.balance'
