@@ -775,6 +775,7 @@ except NetworkError:
 
 | 文档 | 说明 |
 |------|------|
+| [CLI 最佳实践](docs/cli-best-practices.md) | 从配置到订购销毁的完整流程指南 |
 | [API 总入口](docs/README.md) | 31 个端点速查表 + API 基本信息 |
 | [可用区 API](docs/api/01-regions/) | 2 个端点 — 可用区列表/详情（含实测 Zone/Continent/Country 枚举） |
 | [产品 API](docs/api/02-products/) | 4 个端点 — 产品列表/详情/价格/功能比较（含 25 项 target_id 映射） |
