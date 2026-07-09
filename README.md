@@ -96,9 +96,9 @@ Instance commands accept ID or IP:
 
 ---
 
-## 快速上手
+## Quickstart
 
-从零到订购一台云服务器的完整流程，参见 **[CLI 最佳实践](docs/cli-best-practices.md)**。
+Step-by-step walkthrough from zero to a running cloud server: see **[CLI Best Practices](docs/cli-best-practices.md)**.
 
 ---
 
@@ -777,18 +777,18 @@ except NetworkError:
 
 ---
 
-## 文档
+## Documentation
 
-| 文档 | 说明 |
-|------|------|
-| [CLI 最佳实践](docs/cli-best-practices.md) | 从配置到订购销毁的完整流程指南 |
-| [API 总入口](docs/README.md) | 31 个端点速查表 + API 基本信息 |
-| [可用区 API](docs/api/01-regions/) | 2 个端点 — 可用区列表/详情（含实测 Zone/Continent/Country 枚举） |
-| [产品 API](docs/api/02-products/) | 4 个端点 — 产品列表/详情/价格/功能比较（含 25 项 target_id 映射） |
-| [云服务器生命周期](docs/api/03-cloud-lifecycle/) | 4 个端点 — 列表/详情/订购/镜像（含 status/paymentCycle 枚举） |
-| [云服务器管理](docs/api/04-cloud-management/) | 13 个端点 — 续费/升降级/销毁/重装/控制台等 |
-| [其他](docs/api/05-other/) | 1 个端点 — 余额查询 |
-| [海外加速](docs/api/06-accelerator/) | 7 个端点 — 列表/订购/续费/升级/修改IP端口（含 area/region 枚举） |
+| Document | Description |
+|----------|-------------|
+| [CLI Best Practices](docs/cli-best-practices.md) | Full lifecycle walkthrough: config → order → destroy |
+| [API Reference](docs/README.md) | 31 endpoints quick reference + API basics |
+| [Regions API](docs/api/01-regions/) | 2 endpoints — region list/detail (with Zone/Continent/Country enums) |
+| [Products API](docs/api/02-products/) | 4 endpoints — products/list/price/compare (with 25 target_id mappings) |
+| [Cloud Lifecycle](docs/api/03-cloud-lifecycle/) | 4 endpoints — list/detail/order/images (with status/paymentCycle enums) |
+| [Cloud Management](docs/api/04-cloud-management/) | 13 endpoints — renew/upgrade/destroy/rebuild/console etc. |
+| [Other](docs/api/05-other/) | 1 endpoint — balance |
+| [Accelerator](docs/api/06-accelerator/) | 7 endpoints — list/order/renew/upgrade/modify IP-port (with area/region enums) |
 
 ## License
 
