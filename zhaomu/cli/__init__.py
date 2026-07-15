@@ -69,7 +69,7 @@ cli.add_command(accelerator)
 cli.add_command(balance)
 
 try:
-    from zhaomu_deploy.cli import register_commands
-    register_commands(cloud, cli)
+    from zhaomu_deploy.cli import deploy
+    cli.add_command(deploy)
 except ImportError:
     pass

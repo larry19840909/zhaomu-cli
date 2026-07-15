@@ -32,7 +32,7 @@ POST
 ## Success Response Example
 
 ```json
-复制{
+{
   "success": true,
   "message": "Cloud server ordered: Toronto, Canada Zone V\n1 vCPU, 1GB RAM, 1 month",
   "info": {

@@ -27,7 +27,7 @@ GET
 ## Success Response Example
 
 ```json
-复制[{
+[{
   "id": 5,
   "name": "CentOS 7 64-bit",
   "type": "CentOS"

@@ -29,14 +29,14 @@ POST
 | Parameter | Example | Required | Type | Description |
 |--------|--------|--------|--------|--------|
 | ip |  | Yes | string | New target server IP address (accelerated server) |
-| area |  | Yes | string | Server proximity area (Chinese). Observed values: Hong Kong, Taiwan, Tokyo, Los Angeles, Singapore, Frankfurt, Washington, London |
+| area |  | Yes | string | Server proximity area (Chinese). Observed values: 香港, 台湾, 东京, 洛杉矶, 新加坡, 法兰克福, 华盛顿, 伦敦 |
 
 ## Successful Response Example
 
 ```json
 {
   "success": true,
-  "message": "Accelerator server IP modified successfully"
+  "message": "加速器服务器IP修改成功"
 }
 ```
 
@@ -45,12 +45,12 @@ POST
 | Parameter | Type | Description |
 |--------|--------|--------|
 | id | int | Accelerator ID (instance ID) |
-| type | string | Product type. Observed values: Basic, Pro |
+| type | string | Product type. Observed values: 基础型 (Basic), 专业型 (Pro) |
 | domain | string | Acceleration domain |
 | region | string | Entry region. cn-bj2=Beijing, cn-sh2=Shanghai, cn-gd=Guangzhou |
 | ip | string | Target server IP address (accelerated server) |
 | port | int | Application port. Ports 80/443 are not supported |
-| area | string | Server proximity area (Chinese). Observed values: Hong Kong, Taiwan, Tokyo, Los Angeles, Singapore, Frankfurt, Washington, London |
+| area | string | Server proximity area (Chinese). Observed values: 香港, 台湾, 东京, 洛杉矶, 新加坡, 法兰克福, 华盛顿, 伦敦 |
 | startTime | string | Activation time |
 | endTime | string | Expiration time |
 | renewPrice | number | Renewal price, in CNY |
@@ -58,4 +58,4 @@ POST
 
 ## Notes
 
-Server proximity areas: Hong Kong, Singapore, Tokyo, Los Angeles, Washington, Frankfurt, Lagos
+Server proximity areas: 香港, 新加坡, 东京, 洛杉矶, 华盛顿, 法兰克福

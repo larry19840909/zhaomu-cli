@@ -12,6 +12,7 @@ def test_cli_help():
     assert "region" in result.output
     assert "product" in result.output
     assert "balance" in result.output
+    assert "deploy" in result.output.lower()
 
 
 def test_cloud_help():
@@ -65,7 +66,9 @@ def test_deploy_help():
     runner = CliRunner()
     result = runner.invoke(cli, ["deploy", "--help"])
     assert result.exit_code == 0
-    assert "Deploy a cloud server" in result.output
+    assert "MetroVPN" in result.output
+    assert "deploy" in result.output.lower()
+    assert "--mock" in result.output
 
 
 def test_json_flag_available():

@@ -35,7 +35,7 @@ POST
 ```json
 {
   "success": true,
-  "message": "Renewed overseas server accelerator: 123.123.123.123_30896.ipssh.net, 1 month"
+  "message": "续费海外服务器加速器：123.123.123.123_30896.ipssh.net，1个月"
 }
 ```
 
@@ -44,12 +44,12 @@ POST
 | Parameter | Type | Description |
 |--------|--------|--------|
 | id | int | Accelerator ID (instance ID) |
-| type | string | Product type. Observed values: Basic, Pro |
+| type | string | Product type. Observed values: 基础型 (Basic), 专业型 (Pro) |
 | domain | string | Acceleration domain |
 | region | string | Entry region. cn-bj2=Beijing, cn-sh2=Shanghai, cn-gd=Guangzhou |
 | ip | string | Target server IP address (accelerated server) |
 | port | int | Application port. Ports 80/443 are not supported |
-| area | string | Server proximity area (Chinese). Observed values: Hong Kong, Taiwan, Tokyo, Los Angeles, Singapore, Frankfurt, Washington, London |
+| area | string | Server proximity area (Chinese). Observed values: 香港, 台湾, 东京, 洛杉矶, 新加坡, 法兰克福, 华盛顿, 伦敦 |
 | startTime | string | Activation time |
 | endTime | string | Expiration time |
 | renewPrice | number | Renewal price, in CNY |

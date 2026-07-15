@@ -22,11 +22,11 @@ POST
 
 | Parameter | Example | Required | Type | Description |
 |--------|--------|--------|--------|--------|
-| productId | 1 | Yes | int | Product ID (1=Basic, 2=Pro). See the [Product Type](#observed-enum-values) enum table below |
+| productId | 1 | Yes | int | Product ID (1=基础型 (Basic), 2=专业型 (Pro)). See the [Product Type](#observed-enum-values) enum table below |
 | region |  | Yes | string | Entry region. cn-bj2=Beijing, cn-sh2=Shanghai, cn-gd=Guangzhou. See observed enum values below |
 | ip |  | Yes | string | Target server IP address (accelerated server) |
 | port |  | Yes | int | Application port. Ports 80/443 are not supported |
-| area |  | Yes | string | Server proximity area (Chinese). Observed values: Hong Kong, Taiwan, Tokyo, Los Angeles, Singapore, Frankfurt, Washington, London. See observed enum values below |
+| area |  | Yes | string | Server proximity area (Chinese). Observed values: 香港, 台湾, 东京, 洛杉矶, 新加坡, 法兰克福, 华盛顿, 伦敦. See observed enum values below |
 | paymentCycle | 1 | Yes | int | Payment cycle. 1=Monthly, 2=Quarterly, 3=Half-year, 4=Yearly. See observed enum values below |
 
 ## Successful Response Example
@@ -73,13 +73,13 @@ POST
 
 ## Notes
 
-Product IDs: 1=Basic, 2=Pro
+Product IDs: 1=基础型 (Basic), 2=专业型 (Pro)
 
 Entry regions: cn-bj2=Beijing, cn-sh2=Shanghai, cn-gd=Guangzhou
 
 Payment cycles: 1=Monthly, 2=Quarterly, 3=Half-year, 4=Yearly
 
-Server proximity areas: Hong Kong, Singapore, Tokyo, Los Angeles, Washington, Frankfurt, Lagos
+Server proximity areas: 香港, 新加坡, 东京, 洛杉矶, 华盛顿, 法兰克福
 
 ## Observed Enum Values
 
@@ -95,21 +95,21 @@ Server proximity areas: Hong Kong, Singapore, Tokyo, Los Angeles, Washington, Fr
 
 | Value |
 |-----|
-| Hong Kong |
-| Taiwan |
-| Tokyo |
-| Los Angeles |
-| Singapore |
-| Frankfurt |
-| Washington |
-| London |
+| 香港 |
+| 台湾 |
+| 东京 |
+| 洛杉矶 |
+| 新加坡 |
+| 法兰克福 |
+| 华盛顿 |
+| 伦敦 |
 
 **Product type (productId):**
 
 | Value | Description |
 |----|------|
-| 1 | Basic |
-| 2 | Pro |
+| 1 | 基础型 (Basic) |
+| 2 | 专业型 (Pro) |
 
 **Payment cycle (paymentCycle):**
 

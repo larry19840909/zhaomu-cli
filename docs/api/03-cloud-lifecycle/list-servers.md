@@ -21,7 +21,7 @@ GET
 ## Success Response Example
 
 ```json
-复制[{
+[{
   "id": 21299,
   "ip": "155.138.139.237",
   "root": "root",
@@ -102,7 +102,7 @@ GET
 | priceYear | number | Annual price, in CNY |
 | startTime | string | Provisioning time |
 | endTime | string | Expiration time |
-| status | int | Instance status. 1=Provisioning, 2=Running, 3=Stopped, 4=Disabled, 5=Preparing. See observed enum values below |
+| status | int | Instance status: `1`=开通中 (Provisioning), `2`=运行中 (Running), `3`=已关机 (Stopped), `4`=已禁用 (Disabled), `5`=准备中 (Preparing) |
 | note | object | Admin note |
 | noteUser | object | User note |
 | isAutoRenew | int | Auto-renew. 0=Disabled, 1=Enabled |
@@ -110,19 +110,19 @@ GET
 
 ## Notes
 
-Status codes: 1 Provisioning, 2 Running, 3 Stopped, 4 Disabled, 5 Preparing
+Status codes: `1`=开通中 (Provisioning), `2`=运行中 (Running), `3`=已关机 (Stopped), `4`=已禁用 (Disabled), `5`=准备中 (Preparing)
 
 ## Observed Enum Values
 
 **Instance status (status) enum:**
 
-| Value | statusName | Description |
-|----|------------|------|
-| 1 | Provisioning | Provisioning |
-| 2 | Running | Running |
-| 3 | Stopped | Stopped |
-| 4 | Disabled | Disabled |
-| 5 | Preparing | Preparing |
+| Value | Chinese | statusName | Description |
+|----|---------|------------|------|
+| 1 | 开通中 | Provisioning | Provisioning |
+| 2 | 运行中 | Running | Running |
+| 3 | 已关机 | Stopped | Stopped |
+| 4 | 已禁用 | Disabled | Disabled |
+| 5 | 准备中 | Preparing | Preparing |
 
 **Cloud server list item fields (observed):**
 

@@ -16,7 +16,7 @@ GET
 
 | Variable | Example | Required | Type | Description |
 |--------|--------|--------|--------|--------|
-| id |  | Yes | string | Region ID. See [Get Region List](../01-regions/list-regions.md) for enumerated values |
+| id | 780 | Yes | string | Region ID. See [Get Region List](../01-regions/list-regions.md) |
 
 ## Header
 
@@ -26,49 +26,31 @@ GET
 
 ## Success Response Example
 
+**Note:** `diskMedia` values are English (`SSD`, `NORMAL`). `tags` values are Chinese (`原生IP`, `住宅IP`).
+
 ```json
 [{
-  "id": 35,
-  "cpu": 1,
-  "ram": 1024,
-  "disk": 25,
-  "diskMax": 25,
+  "id": 9723,
+  "cpu": 2,
+  "ram": 4096,
+  "disk": 40,
+  "diskMax": 1000,
   "diskData": 0,
-  "diskDataMax": 40000,
-  "diskMedia": "SSD",
-  "bandwidth": null,
-  "bandwidthMax": null,
-  "traffic": 1000,
-  "priceHour": 0.1,
-  "price": 49,
-  "priceQuarter": 147,
-  "priceHalfYear": 294,
-  "priceYear": 588,
-  "tags": "",
+  "diskDataMax": 32000,
+  "diskMedia": "NORMAL",
+  "bandwidth": 1,
+  "bandwidthMax": 200,
+  "traffic": null,
+  "priceHour": null,
+  "price": 90,
+  "priceQuarter": 270,
+  "priceHalfYear": 540,
+  "priceYear": 1080,
+  "tags": "原生IP",
   "outOfStock": 0,
-  "noWindows": null,
-  "region_id": 3
-},{
-  "id": 36,
-  "cpu": 1,
-  "ram": 2048,
-  "disk": 55,
-  "diskMax": 55,
-  "diskData": 0,
-  "diskDataMax": 40000,
-  "diskMedia": "SSD",
-  "bandwidth": null,
-  "bandwidthMax": null,
-  "traffic": 2000,
-  "priceHour": 0.2,
-  "price": 99,
-  "priceQuarter": 297,
-  "priceHalfYear": 594,
-  "priceYear": 1188,
-  "tags": "Supports Windows",
-  "outOfStock": 0,
-  "noWindows": null,
-  "region_id": 3
+  "noWindows": 1,
+  "minPaymentCycle": 1,
+  "region_id": 8
 }]
 ```
 
@@ -77,26 +59,23 @@ GET
 | Parameter | Type | Description |
 |--------|--------|--------|
 | id | int | Product ID. Used for ordering, pricing, and other operations |
-| cpu | int | vCPU cores. Observed range: 1-24 cores |
-| ram | int | Memory in MB. Observed range: 1024-393216 (1 GB-384 GB) |
-| disk | int | System disk in GB. Observed range: 10-2048 GB |
+| cpu | int | vCPU cores |
+| ram | int | Memory in MB |
+| disk | int | System disk in GB |
 | diskMax | int | Maximum system disk size (GB) |
-| diskData | int | Data disk in GB |
+| diskData | int | Data disk in GB. 0 means no data disk |
 | diskDataMax | int | Maximum data disk size (GB) |
-| diskMedia | string | Disk media type. Observed values: SSD, NORMAL |
-| bandwidth | int/null | Bandwidth in Mbps. Typically null in observed responses |
-| bandwidthMax | int/null | Maximum bandwidth in Mbps. Typically null in observed responses |
-| traffic | int/null | Monthly traffic quota in GB. null means unlimited. Observed range: 1000-15000 GB |
-| priceHour | number/null | Hourly price in CNY. null means hourly billing not supported |
+| diskMedia | string | Disk media type. API returns English: `SSD`, `NORMAL` |
+| bandwidth | int/null | Bandwidth in Mbps |
+| bandwidthMax | int/null | Maximum bandwidth in Mbps |
+| traffic | int/null | Monthly traffic quota in GB. `null` means unlimited |
+| priceHour | number/null | Hourly price in CNY. `null` means hourly billing not supported |
 | price | number | Monthly price in CNY |
 | priceQuarter | number | Quarterly price in CNY |
 | priceHalfYear | number | Semi-annual price in CNY |
 | priceYear | number | Annual price in CNY |
-| tags | string | Tags. Observed values: "" (empty), "Native IP", "Supports Windows" |
-| outOfStock | int | Stock status. 0=In stock, 1=Out of stock |
-| noWindows | int/null | Whether Windows is unsupported. null=Supported, 1=Unsupported |
-| region_id | int | Region ID. See [Get Region List](../01-regions/list-regions.md) for enumerated values |
-
-## Notes
-
-None
+| tags | string | Tags (Chinese). API returns e.g. `原生IP`, `住宅IP`, `""` (empty) |
+| outOfStock | int | Stock status. `0`=In stock, `1`=Out of stock |
+| noWindows | int/null | Windows support. `null`=Supported, `1`=Unsupported |
+| minPaymentCycle | int | Minimum payment cycle. `1`=Monthly, `2`=Quarterly, `3`=Half-year, `4`=Annual, `5`=Hourly |
+| region_id | int | Region ID. See [List Regions](../01-regions/list-regions.md) |

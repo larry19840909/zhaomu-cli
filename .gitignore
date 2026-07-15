@@ -16,6 +16,14 @@ tmp/
 # 私有插件模块
 zhaomu_deploy/
 
+# Admin 数据库文件（包含加密后的 API Key）
+admin.db
+*.db
+
+# 前端构建产物和依赖
+admin/frontend/node_modules/
+admin/frontend/dist/
+
 # 工具内部文件
 .omo/
 .codegraph/

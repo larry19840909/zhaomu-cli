@@ -17,8 +17,8 @@ client = ZhaomuClient.from_config("config.json")
 - **Response Format**:
   - **List endpoints** → JSON array `[{...}]`
   - **Action endpoints** → `{"success": true/false, "message": "..."}`
-- **Instance Status**: 1=Provisioning 2=Running 3=Stopped 4=Disabled 5=Preparing
-- **Payment Cycles**: 1=Monthly 2=Quarterly 3=Semi-annual 4=Annual 5=Hourly
+- **Instance Status**: `1`=开通中 (Provisioning) `2`=运行中 (Running) `3`=已关机 (Stopped) `4`=已禁用 (Disabled) `5`=准备中 (Preparing)
+- **Payment Cycles**: `1`=月付 (Monthly) `2`=季付 (Quarterly) `3`=半年付 (Semi-annual) `4`=年付 (Annual) `5`=时付 (Hourly)
 
 ## Endpoint Quick Reference
 
