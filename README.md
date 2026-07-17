@@ -663,7 +663,6 @@ print(f"Traffic: {s.traffic}G, Auto Renew: {s.isAutoRenew}")
 from zhaomu.models.cloud.request import OrderRequest
 
 req = OrderRequest(
-    regionId=780,
     productId=9723,
     imageId=842,        # Ubuntu 20.04
     disk=40,

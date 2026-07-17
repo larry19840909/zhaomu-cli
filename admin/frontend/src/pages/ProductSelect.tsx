@@ -26,11 +26,12 @@ export default function ProductSelect() {
   const [loading, setLoading] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<React.Key[]>([]);
   const [orderOpen, setOrderOpen] = useState(false);
-  const [orderItems, setOrderItems] = useState<Map<number, { imageId: number; disk: number; cycle: number; quantity: number }>>(new Map());
+  const [orderItems, setOrderItems] = useState<Map<number, { imageId: number; imageName: string; disk: number; cycle: number; quantity: number }>>(new Map());
   const [images, setImages] = useState<Map<number, ImageItem[]>>(new Map());
   const [prepLoading, setPrepLoading] = useState(false);
   const [orderLoading, setOrderLoading] = useState(false);
   const [refundZoneIds, setRefundZoneIds] = useState<Set<number>>(new Set());
+  const [balance, setBalance] = useState<number | null>(null);
 
   // 加载账户
   useEffect(() => {
@@ -40,6 +41,20 @@ export default function ProductSelect() {
       if (list.length === 1) setAccountId(list[0].id);
     }).catch(() => {});
   }, []);
+
+  // 查询余额
+  const fetchBalance = useCallback(async (aid: number) => {
+    try {
+      const r = await apiClient.get(`/api/balance?account_id=${aid}`);
+      setBalance(r.data.balance);
+    } catch { setBalance(null); }
+  }, []);
+
+  // 账户变化时自动查询余额（含初始自动选中 + 手动切换）
+  useEffect(() => {
+    if (accountId !== null) fetchBalance(accountId);
+    else setBalance(null);
+  }, [accountId, fetchBalance]);
 
   // 加载地域列表
   useEffect(() => {
@@ -132,7 +147,7 @@ export default function ProductSelect() {
     if (selectedKeys.length === 0) { message.warning('请先勾选产品'); return; }
     setPrepLoading(true);
     const imgMap = new Map<number, ImageItem[]>();
-    const items = new Map<number, { imageId: number; disk: number; cycle: number; quantity: number }>();
+    const items = new Map<number, { imageId: number; imageName: string; disk: number; cycle: number; quantity: number }>();
     try {
       // 并行获取所有选中产品的镜像信息
       const results = await Promise.all(
@@ -150,6 +165,7 @@ export default function ProductSelect() {
           || imgs[0];
         items.set(pid, {
           imageId: defaultImage?.id || 0,
+          imageName: defaultImage?.name || '',
           disk: data.defaultDisk || 20,
           cycle: data.minPaymentCycle || 1,
           quantity: 1,
@@ -164,18 +180,33 @@ export default function ProductSelect() {
 
   const handleOrder = async () => {
     if (accountId === null) { message.warning('请先选择账户'); return; }
-    const orders = Array.from(orderItems.entries()).map(([pid, item]) => ({
-      product_id: pid, image_id: item.imageId, disk: item.disk,
-      payment_cycle: item.cycle, quantity: item.quantity,
-    }));
+    const orders = Array.from(orderItems.entries()).map(([pid, item]) => {
+      const prod = products.find(p => p.id === pid);
+      const ip_type = prod?.tags?.includes('原生IP') ? '原生IP'
+        : prod?.tags?.includes('住宅IP') ? '住宅IP' : '';
+      return {
+        product_id: pid, image_id: item.imageId, image_name: item.imageName,
+        disk: item.disk, payment_cycle: item.cycle, quantity: item.quantity,
+        ip_type,
+      };
+    });
     setOrderLoading(true);
     try {
       const r = await apiClient.post(`/api/orders?account_id=${accountId}`, orders);
       message.success(`成功下单 ${r.data.success_count} 台服务器`);
       setOrderOpen(false); setSelectedKeys([]);
+      fetchBalance(accountId);
     } catch { }
     finally { setOrderLoading(false); }
   };
+
+  // 计算本次下单总价（月付单价 × 数量）
+  const totalPrice = useMemo(() => {
+    return Array.from(orderItems.entries()).reduce((sum, [pid, item]) => {
+      const prod = products.find(p => p.id === pid);
+      return sum + (prod?.price || 0) * (item.quantity || 1);
+    }, 0);
+  }, [orderItems, products]);
 
   const columns: ColumnsType<Product> = [
     { title: 'CPU', dataIndex: 'cpu', render: (v: number) => `${v}核`, width: 60 },
@@ -239,7 +270,8 @@ export default function ProductSelect() {
         )} />
 
       <Modal title="确认下单" open={orderOpen} onCancel={() => setOrderOpen(false)}
-        onOk={handleOrder} confirmLoading={orderLoading} okText="确认下单" cancelText="取消" width={700}>
+        onOk={handleOrder} confirmLoading={orderLoading} okText="确认下单" cancelText="取消" width={700}
+        okButtonProps={{ disabled: balance !== null && balance < totalPrice }}>
         {Array.from(orderItems.entries()).map(([pid, item]) => {
           const prod = products.find(p => p.id === pid);
           if (!prod) return null;
@@ -249,7 +281,10 @@ export default function ProductSelect() {
               title={`${prod.cpu}核/${prod.ram >= 1024 ? prod.ram / 1024 + 'G' : prod.ram + 'M'}/${prod.disk}G — ${zoneMap.get(prod.zone) || prod.zone}`}>
               <Space wrap>
                 <span>镜像：<Select value={item.imageId} style={{ width: 160 }}
-                  onChange={(v) => setOrderItems(prev => new Map(prev).set(pid, { ...item, imageId: v }))}
+                  onChange={(v) => {
+                    const imgItem = imgs.find(i => i.id === v);
+                    setOrderItems(prev => new Map(prev).set(pid, { ...item, imageId: v, imageName: imgItem?.name || '' }));
+                  }}
                   options={imgs.map(i => ({ label: i.name, value: i.id }))} /></span>
                 <span>磁盘：{prod.disk}G（默认）</span>
                 <span>周期：月付</span>
@@ -259,6 +294,17 @@ export default function ProductSelect() {
             </Card>
           );
         })}
+        <div style={{ marginTop: 16, padding: '12px 16px', background: '#fafafa', borderRadius: 6 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>余额：<strong style={{ color: '#1677ff' }}>¥{balance?.toFixed(2) ?? '--'}</strong></span>
+            <span>总价：<strong>¥{totalPrice.toFixed(2)}</strong></span>
+          </div>
+          {balance !== null && balance < totalPrice && (
+            <div style={{ marginTop: 8, color: '#ff4d4f', fontWeight: 500 }}>
+              余额不足，还差 ¥{(totalPrice - balance).toFixed(2)}
+            </div>
+          )}
+        </div>
       </Modal>
     </Card>
   );

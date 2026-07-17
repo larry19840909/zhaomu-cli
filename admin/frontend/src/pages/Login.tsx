@@ -20,9 +20,9 @@ export default function Login() {
   const onSetup = async (values: { username: string; password: string }) => {
     setLoading(true);
     try {
-      const resp = await apiClient.post('/api/auth/login', { password: values.password });
+      const resp = await apiClient.post('/api/auth/login', { username: values.username, password: values.password });
       localStorage.setItem('admin_token', resp.data.token);
-      localStorage.setItem('admin_user', values.username);
+      localStorage.setItem('admin_user', resp.data.username || values.username);
       message.success('设置成功');
       navigate('/settings');
     } catch {
@@ -35,9 +35,9 @@ export default function Login() {
   const onLogin = async (values: { username: string; password: string }) => {
     setLoading(true);
     try {
-      const resp = await apiClient.post('/api/auth/login', { password: values.password });
+      const resp = await apiClient.post('/api/auth/login', { username: values.username, password: values.password });
       localStorage.setItem('admin_token', resp.data.token);
-      localStorage.setItem('admin_user', values.username);
+      localStorage.setItem('admin_user', resp.data.username || values.username);
       message.success('登录成功');
       navigate('/settings');
     } catch {

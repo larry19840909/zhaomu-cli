@@ -21,7 +21,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from admin.api_routes.orders import router
+from admin.api_routes.orders import OrderItem, router
 from admin.api_routes.shared import get_db as shared_get_db
 from admin.db import (
     create_account,
@@ -398,14 +398,14 @@ class TestNonexistentAccount:
 
 
 class TestAuthErrorNoPartialWrites:
-    """SC6: 认证失败 → 500，无部分写入。"""
+    """SC6: 认证失败返回 401，保留前序成功结果。"""
 
-    def test_auth_error_returns_500_no_partial_writes(
+    def test_auth_error_returns_401_with_partial_results(
         self, client_with_account: TestClient, temp_db_path: str,
     ) -> None:
         """Given: 账户存在，但 API 抛出 AuthError
         When: POST /api/orders 提交 3 个订单，第一个就触发 AuthError
-        Then: 返回 500，DB 中无任何记录
+        Then: 返回 401，success_count=0，aborted=True
         """
         mock_client = MagicMock()
         mock_client.product.info.return_value = _make_product(id=9723)
@@ -423,8 +423,10 @@ class TestAuthErrorNoPartialWrites:
                 ],
             )
 
-        assert resp.status_code == 500
-        assert "认证失败" in resp.json()["detail"]
+        data = resp.json()
+        assert resp.status_code == 401
+        assert data["aborted"] is True
+        assert data["success_count"] == 0
 
         # 验证 DB 中无任何记录
         async def _check():
@@ -489,3 +491,84 @@ class TestPartialBatchSuccess:
         assert len(servers) == 2
         server_ids = {s.server_id for s in servers}
         assert server_ids == {100, 102}
+
+
+# ---------------------------------------------------------------------------
+# OrderItem 模型测试
+# ---------------------------------------------------------------------------
+
+
+class TestOrderItemModel:
+    """OrderItem 模型测试。"""
+
+    def test_order_item_with_ip_type(self) -> None:
+        """OrderItem 接受 ip_type 字段，默认值为空字符串。
+
+        Given: OrderItem 模型定义含 ip_type 字段
+        When: 创建 OrderItem 实例
+        Then: 默认值 "" 及自定义值均可正常存取
+        """
+        # 默认值
+        item = OrderItem(product_id=1, image_id=1)
+        assert item.ip_type == ""
+
+        # 自定义值
+        item2 = OrderItem(product_id=1, image_id=1, ip_type="原生IP")
+        assert item2.ip_type == "原生IP"
+
+
+# ---------------------------------------------------------------------------
+# 地理信息 + ip_type 传递测试
+# ---------------------------------------------------------------------------
+
+
+class TestGeoIpType:
+    """测试下单时将地理信息和 ip_type 传递给 create_server_record。"""
+
+    def test_order_passes_geo_to_create_server_record(
+        self, client_with_account: TestClient,
+    ) -> None:
+        """Given: 订单含 ip_type, region.info 返回 country/city
+        When: POST /api/orders
+        Then: create_server_record 收到 country, city, ip_type 参数
+        """
+        mock_client = MagicMock()
+        mock_client.product.info.return_value = _make_product(
+            id=9723, region_id=780, minPaymentCycle=1,
+        )
+        mock_client.cloud.order.return_value = _make_op_result(
+            success=True, message="下单成功", info={"id": 280722},
+        )
+
+        # 模拟 region.info 返回地理信息
+        mock_region = MagicMock()
+        mock_region.country = "美国"
+        mock_region.city = "纽约"
+        mock_client.region.info.return_value = mock_region
+
+        with patch(
+            "admin.api_routes.orders.get_client", return_value=mock_client,
+        ), patch(
+            "admin.api_routes.orders.create_server_record",
+        ) as mock_create:
+            resp = client_with_account.post(
+                "/api/orders?account_id=1&apikey=test-key",
+                json=[{
+                    "product_id": 9723,
+                    "image_id": 167,
+                    "disk": 40,
+                    "payment_cycle": 1,
+                    "ip_type": "原生IP",
+                }],
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success_count"] == 1
+
+        # 验证 create_server_record 被调用并传入了地理信息 + ip_type
+        mock_create.assert_called_once()
+        call_kwargs = mock_create.call_args.kwargs
+        assert call_kwargs["country"] == "美国", f"Expected 美国, got {call_kwargs.get('country')}"
+        assert call_kwargs["city"] == "纽约", f"Expected 纽约, got {call_kwargs.get('city')}"
+        assert call_kwargs["ip_type"] == "原生IP", f"Expected 原生IP, got {call_kwargs.get('ip_type')}"

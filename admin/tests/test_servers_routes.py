@@ -1,6 +1,6 @@
 """admin/tests/test_servers_routes.py — 云服务器管理路由测试。
 
-9 个场景覆盖 list/poll/deploy/destroy 端点：
+18 个场景覆盖 list/poll/deploy/destroy/detail/delete-record 端点：
 - SC1: deploy 运行中服务器 → 200，状态更新为 deployed
 - SC2: poll 更新状态 → 200，DB 状态更新
 - SC3: destroy 成功 → 200，状态更新为 destroyed
@@ -10,6 +10,15 @@
 - SC7: 无 SOS token → 400
 - SC8: deploy API 出错 → 500，状态不变
 - SC9: resolve_region_id 失败 → 400
+- SC10: _server_to_dict 包含所有新字段
+- SC11: filter by country
+- SC12: filter by account_name
+- SC13: filter multiple params AND logic
+- SC14: filter by ip_type
+- SC15: detail endpoint 返回 masked password
+- SC16: detail endpoint 缓存到 DB
+- SC17: delete record only for 已销毁
+- SC18: delete record 404
 """
 
 import asyncio
@@ -64,7 +73,7 @@ async def _create_running_server(
     db_path: str,
     server_id: int = 100,
     ip: str = "1.2.3.4",
-    status: str = "running",
+    status: str = "运行中",
     account_id: int = 1,
 ) -> int:
     """创建一条服务器记录并返回 DB 内部 ID。"""
@@ -82,6 +91,19 @@ async def _create_running_server(
             status=status,
         )
         return rec.id
+
+
+async def _update_server_fields(
+    db_path: str, db_id: int, **fields: object,
+) -> None:
+    """直接更新服务器记录的字段（用于测试中设置新字段）。"""
+    async with admin_get_db(db_path) as db:
+        for field, val in fields.items():
+            await db.execute(
+                f"UPDATE servers SET {field} = ? WHERE id = ?",
+                (val, db_id),
+            )
+        await db.commit()
 
 
 async def _get_server_status(db_path: str, db_id: int) -> str | None:
@@ -135,7 +157,7 @@ def _make_cloud_detail_mock(
     ip: str = "1.2.3.4",
     image: str = "Ubuntu 20.04",
 ) -> MagicMock:
-    """创建 CloudServerDetail 的 MagicMock。"""
+    """创建 CloudServerDetail 的 MagicMock，包含所有 detail 字段。"""
     m = MagicMock()
     m.cpu = cpu
     m.ram = ram
@@ -143,14 +165,24 @@ def _make_cloud_detail_mock(
     m.password = password
     m.ip = ip
     m.image = image
+    # 为 detail 端点需要的额外字段设默认值（防止 getattr 返回 MagicMock）
+    m.root = "root"
+    m.diskData = 0
+    m.diskMedia = ""
+    m.traffic = 0
+    m.startTime = ""
+    m.endTime = ""
+    m.isAutoRenew = 0
+    m.status = 2
     return m
 
 
-def _make_region_mock(city: str = "新加坡", cityEn: str = "Singapore") -> MagicMock:
+def _make_region_mock(city: str = "新加坡", cityEn: str = "Singapore", country: str = "新加坡") -> MagicMock:
     """创建 Region 的 MagicMock。"""
     m = MagicMock()
     m.city = city
     m.cityEn = cityEn
+    m.country = country
     return m
 
 
@@ -205,9 +237,13 @@ class TestServerRoutes:
         assert data["server_ip"] == "10.0.0.1"
         assert data["deployed_at"] != ""
 
-        # DB 状态已更新
-        status = _run(_get_server_status(temp_db_path, db_id))
-        assert status == "deployed"
+        # DB deploy_status 已更新为已部署，status 不变
+        async def _get_deploy_status(db_path: str, db_id: int) -> str:
+            async with admin_get_db(db_path) as db:
+                rec = await get_server_record(db, db_id)
+                return rec.deploy_status if rec else ""
+        deploy_s = _run(_get_deploy_status(temp_db_path, db_id))
+        assert deploy_s == "已部署"
 
     # — SC2: poll updates status ——————————————————————————————————————
 
@@ -236,13 +272,13 @@ class TestServerRoutes:
 
         assert resp.status_code == 200
         data = resp.json()
-        assert data["status"] == "running"
+        assert data["status"] == "运行中"
         assert data["ip"] == "5.6.7.8"
-        assert data["live"]["live_status"] == "running"
+        assert data["live"]["live_status"] == "运行中"
         assert data["live"]["live_ip"] == "5.6.7.8"
 
         status = _run(_get_server_status(temp_db_path, db_id))
-        assert status == "running"
+        assert status == "运行中"
 
     # — SC3: destroy succeeds ——————————————————————————————————————————
 
@@ -270,16 +306,16 @@ class TestServerRoutes:
         assert data["destroyed_at"] != ""
 
         status = _run(_get_server_status(temp_db_path, db_id))
-        assert status == "destroyed"
+        assert status == "已销毁"
 
     # — SC4: deploy non-running → 400 ———————————————————————————————————
 
     def test_deploy_non_running_returns_400(
         self, client: TestClient, temp_db_path: str,
     ) -> None:
-        """Given: status=provisioning 的服务器
+        """Given: status=provisioning 的服务器（非运行中）
         When: POST /api/servers/{id}/deploy
-        Then: 返回 400，提示 not running
+        Then: 返回 400，提示仅运行中的服务器可以部署
         """
         account_id = _run(_ensure_account(temp_db_path))
         _run(_setup_sos_token(temp_db_path, "test-token"))
@@ -290,7 +326,7 @@ class TestServerRoutes:
         )
 
         assert resp.status_code == 400
-        assert "not running" in resp.json()["detail"]
+        assert "运行中" in resp.json()["detail"]
 
     # — SC5: deploy no IP → 400 ————————————————————————————————————————
 
@@ -310,7 +346,7 @@ class TestServerRoutes:
         )
 
         assert resp.status_code == 400
-        assert "no IP" in resp.json()["detail"]
+        assert "no ip" in resp.json()["detail"].lower()
 
     # — SC6: destroy already-destroyed → 400 ———————————————————————————
 
@@ -322,7 +358,7 @@ class TestServerRoutes:
         Then: 返回 400，提示 already destroyed
         """
         account_id = _run(_ensure_account(temp_db_path))
-        db_id = _run(_create_running_server(temp_db_path, status="destroyed", account_id=account_id))
+        db_id = _run(_create_running_server(temp_db_path, status="已销毁", account_id=account_id))
 
         resp = client.delete(
             f"/api/servers/{db_id}?account_id=1&apikey=sk-test",
@@ -385,7 +421,7 @@ class TestServerRoutes:
 
         # DB 状态未变
         status = _run(_get_server_status(temp_db_path, db_id))
-        assert status == "running"
+        assert status == "运行中"
 
     # — SC9: resolve_region_id fails → 400 —————————————————————————————
 
@@ -419,3 +455,292 @@ class TestServerRoutes:
 
         assert resp.status_code == 400
         assert "无法解析" in resp.json()["detail"]
+
+    # — SC10: _server_to_dict 包含所有新字段 ——————————————————————————
+
+    def test_server_to_dict_includes_new_fields(
+        self, client: TestClient, temp_db_path: str,
+    ) -> None:
+        """Given: 服务器记录包含所有新字段（country, city, ip_type 等）
+        When: GET /api/servers?account_id=1
+        Then: 响应中的每条记录包含所有 14 个新字段
+        """
+        account_id = _run(_ensure_account(temp_db_path))
+        db_id = _run(_create_running_server(temp_db_path, account_id=account_id))
+        # 设置新字段
+        _run(_update_server_fields(
+            temp_db_path, db_id,
+            country="新加坡", city="Singapore", ip_type="原生IP",
+            root="root", password="secret123", cpu=4, ram=8192,
+            diskData=50, diskMedia="SSD", traffic=2000,
+            startTime="2025-01-01", endTime="2025-12-31",
+            isAutoRenew=1, has_refund=0,
+        ))
+
+        resp = client.get(f"/api/servers?account_id={account_id}")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) >= 1
+        rec = data[0]
+        assert rec["country"] == "新加坡"
+        assert rec["city"] == "Singapore"
+        assert rec["ip_type"] == "原生IP"
+        assert rec["root"] == "root"
+        assert "password" not in rec
+        assert rec["cpu"] == 4
+        assert rec["ram"] == 8192
+        assert rec["diskData"] == 50
+        assert rec["diskMedia"] == "SSD"
+        assert rec["traffic"] == 2000
+        assert rec["startTime"] == "2025-01-01"
+        assert rec["endTime"] == "2025-12-31"
+        assert rec["isAutoRenew"] == 1
+        assert rec["has_refund"] == 0
+
+    # — SC11: filter by country ————————————————————————————————————————
+
+    def test_filter_by_country(
+        self, client: TestClient, temp_db_path: str,
+    ) -> None:
+        """Given: 两台服务器分别在新加坡和日本
+        When: GET /api/servers?country=新加坡
+        Then: 只返回新加坡的服务器
+        """
+        account_id = _run(_ensure_account(temp_db_path))
+        db_id_sg = _run(_create_running_server(
+            temp_db_path, server_id=100, account_id=account_id,
+        ))
+        db_id_jp = _run(_create_running_server(
+            temp_db_path, server_id=200, account_id=account_id,
+        ))
+        _run(_update_server_fields(temp_db_path, db_id_sg, country="新加坡"))
+        _run(_update_server_fields(temp_db_path, db_id_jp, country="日本"))
+
+        resp = client.get(f"/api/servers?account_id={account_id}&country=新加坡")
+        assert resp.status_code == 200
+        data = resp.json()
+        ids = [r["id"] for r in data]
+        assert db_id_sg in ids
+        assert db_id_jp not in ids
+
+    # — SC12: filter by account_name ————————————————————————————————————
+
+    def test_filter_by_account_name(
+        self, client: TestClient, temp_db_path: str,
+    ) -> None:
+        """Given: 两个账户各有一台服务器
+        When: GET /api/servers?account_name=test-acc
+        Then: 只返回该账户的服务器
+        """
+        acc1 = _run(_ensure_account(temp_db_path))
+        # 创建第二个账户
+        async def _create_acc2() -> int:
+            async with admin_get_db(temp_db_path) as db:
+                rec = await create_account(db, "other-acc", "sk-other")
+                return rec.id
+        acc2 = _run(_create_acc2())
+
+        db_id_1 = _run(_create_running_server(
+            temp_db_path, server_id=100, account_id=acc1,
+        ))
+        db_id_2 = _run(_create_running_server(
+            temp_db_path, server_id=200, account_id=acc2,
+        ))
+
+        resp = client.get("/api/servers?account_name=test-acc")
+        assert resp.status_code == 200
+        data = resp.json()
+        ids = [r["id"] for r in data]
+        assert db_id_1 in ids
+        assert db_id_2 not in ids
+
+    # — SC13: filter multiple params AND logic ————————————————————————
+
+    def test_filter_multiple_params_and_logic(
+        self, client: TestClient, temp_db_path: str,
+    ) -> None:
+        """Given: 两台服务器 country/ip_type 不同
+        When: GET /api/servers?country=新加坡&deploy_status=已部署
+        Then: 只返回同时满足两个条件的记录
+        """
+        account_id = _run(_ensure_account(temp_db_path))
+        db_id_a = _run(_create_running_server(
+            temp_db_path, server_id=100, account_id=account_id,
+        ))
+        db_id_b = _run(_create_running_server(
+            temp_db_path, server_id=200, account_id=account_id,
+        ))
+        _run(_update_server_fields(
+            temp_db_path, db_id_a, country="新加坡", deploy_status="已部署",
+        ))
+        _run(_update_server_fields(
+            temp_db_path, db_id_b, country="日本", deploy_status="",
+        ))
+
+        resp = client.get(
+            f"/api/servers?account_id={account_id}&country=新加坡&deploy_status=已部署",
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        ids = [r["id"] for r in data]
+        assert db_id_a in ids
+        assert db_id_b not in ids
+
+    # — SC14: filter by ip_type ————————————————————————————————————
+
+    def test_filter_by_ip_type(
+        self, client: TestClient, temp_db_path: str,
+    ) -> None:
+        """Given: 两台服务器 ip_type 不同
+        When: GET /api/servers?ip_type=原生IP
+        Then: 只返回原生IP的服务器
+        """
+        account_id = _run(_ensure_account(temp_db_path))
+        db_id_a = _run(_create_running_server(
+            temp_db_path, server_id=100, account_id=account_id,
+        ))
+        db_id_b = _run(_create_running_server(
+            temp_db_path, server_id=200, account_id=account_id,
+        ))
+        _run(_update_server_fields(temp_db_path, db_id_a, ip_type="原生IP"))
+        _run(_update_server_fields(temp_db_path, db_id_b, ip_type="广播IP"))
+
+        resp = client.get(
+            f"/api/servers?account_id={account_id}&ip_type=原生IP",
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        ids = [r["id"] for r in data]
+        assert db_id_a in ids
+        assert db_id_b not in ids
+
+    # — SC15: detail endpoint 返回 masked password ————————————————————
+
+    def test_detail_endpoint_returns_masked_password(
+        self, client: TestClient, temp_db_path: str,
+    ) -> None:
+        """Given: 运行中服务器，zhaomu API 返回密码
+        When: GET /api/servers/{id}/detail
+        Then: 返回 ** 而非真实密码
+        """
+        account_id = _run(_ensure_account(temp_db_path))
+        db_id = _run(_create_running_server(temp_db_path, account_id=account_id))
+
+        detail_mock = _make_cloud_detail_mock(
+            cpu=2, ram=2048, disk=30, password="real-password",
+        )
+        region_mock = _make_region_mock(city="新加坡", cityEn="Singapore")
+
+        mock_client = MagicMock()
+        mock_client.cloud.info.return_value = detail_mock
+        mock_client.region.info.return_value = region_mock
+
+        with patch("admin.api_routes.servers.get_client", return_value=mock_client):
+            resp = client.get(f"/api/servers/{db_id}/detail?account_id=1&apikey=sk-test")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["password"] == "**"
+        assert data["password_raw"] == "real-password"
+
+    # — SC16: detail endpoint 缓存到 DB ——————————————————————————————————
+
+    def test_detail_endpoint_caches_to_db(
+        self, client: TestClient, temp_db_path: str,
+    ) -> None:
+        """Given: 服务器记录无 detail 字段
+        When: GET /api/servers/{id}/detail
+        Then: DB 中的 cpu/ram/traffic 等字段被更新
+        """
+        account_id = _run(_ensure_account(temp_db_path))
+        db_id = _run(_create_running_server(temp_db_path, account_id=account_id))
+
+        detail_mock = _make_cloud_detail_mock(
+            cpu=4, ram=4096, disk=40, password="secret", ip="1.2.3.4", image="Ubuntu 22.04",
+        )
+        detail_mock.diskData = 100
+        detail_mock.diskMedia = "NVMe"
+        detail_mock.traffic = 5000
+        detail_mock.startTime = "2025-01-01"
+        detail_mock.endTime = "2025-06-30"
+        detail_mock.isAutoRenew = 1
+        detail_mock.root = "root"
+
+        region_mock = _make_region_mock(city="新加坡", cityEn="Singapore")
+
+        mock_client = MagicMock()
+        mock_client.cloud.info.return_value = detail_mock
+        mock_client.region.info.return_value = region_mock
+
+        with patch("admin.api_routes.servers.get_client", return_value=mock_client):
+            resp = client.get(f"/api/servers/{db_id}/detail?account_id=1&apikey=sk-test")
+        assert resp.status_code == 200
+
+        # 验证 DB 已更新
+        async def _get_server_fields() -> dict[str, object]:
+            async with admin_get_db(temp_db_path) as db:
+                rows = list(await db.execute_fetchall(
+                    "SELECT cpu, ram, diskData, diskMedia, traffic, startTime, endTime,"
+                    " isAutoRenew, root, password, country, city"
+                    " FROM servers WHERE id = ?",
+                    (db_id,),
+                ))
+                return dict(rows[0])  # pyright: ignore[reportAny]
+        fields = _run(_get_server_fields())
+        assert fields["cpu"] == 4
+        assert fields["ram"] == 4096
+        assert fields["diskData"] == 100
+        assert fields["diskMedia"] == "NVMe"
+        assert fields["traffic"] == 5000
+        assert fields["startTime"] == "2025-01-01"
+        assert fields["endTime"] == "2025-06-30"
+        assert fields["isAutoRenew"] == 1
+        assert fields["root"] == "root"
+        assert fields["password"] == "secret"
+        assert fields["country"] == "新加坡"
+
+    # — SC17: delete record only for 已销毁 ————————————————————————————
+
+    def test_delete_record_destroyed_only(
+        self, client: TestClient, temp_db_path: str,
+    ) -> None:
+        """Given: 一台已销毁服务器、一台运行中服务器
+        When: DELETE /api/servers/{id}/record
+        Then: 已销毁返回 200，运行中返回 400
+        """
+        account_id = _run(_ensure_account(temp_db_path))
+        db_id_destroyed = _run(_create_running_server(
+            temp_db_path, server_id=100, status="已销毁", account_id=account_id,
+        ))
+        db_id_running = _run(_create_running_server(
+            temp_db_path, server_id=200, status="运行中", account_id=account_id,
+        ))
+
+        # 已销毁 → 200
+        resp1 = client.delete(
+            f"/api/servers/{db_id_destroyed}/record?account_id=1&apikey=sk-test",
+        )
+        assert resp1.status_code == 200
+        assert resp1.json()["success"] is True
+
+        # 运行中 → 400
+        resp2 = client.delete(
+            f"/api/servers/{db_id_running}/record?account_id=1&apikey=sk-test",
+        )
+        assert resp2.status_code == 400
+        assert "已销毁" in resp2.json()["detail"]
+
+    # — SC18: delete record not found ——————————————————————————————————
+
+    def test_delete_record_not_found(
+        self, client: TestClient, temp_db_path: str,
+    ) -> None:
+        """Given: 不存在 id=9999 的记录
+        When: DELETE /api/servers/9999/record
+        Then: 返回 404
+        """
+        _ = _run(_ensure_account(temp_db_path))
+        resp = client.delete(
+            "/api/servers/9999/record?account_id=1&apikey=sk-test",
+        )
+        assert resp.status_code == 404

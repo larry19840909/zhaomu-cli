@@ -92,6 +92,16 @@ GET
 
 Status codes: `1`=开通中 (Provisioning), `2`=运行中 (Running), `3`=已关机 (Stopped), `4`=已禁用 (Disabled), `5`=准备中 (Preparing)
 
+## HTTP Status Codes
+
+| Status Code | Description |
+|---|---|
+| 200 | Success — server info returned |
+| 401 | Authentication failed — API key invalid or missing |
+| 404 | Server not found — instance does not exist or has been destroyed |
+
+When the server has been destroyed, the API returns 404. The admin panel detects this and automatically marks the server as "已销毁" in the local database.
+
 ## Observed Response Example
 
 ```json
