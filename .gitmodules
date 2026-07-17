@@ -1,0 +1,3 @@
+[submodule "zhaomu_deploy"]
+	path = zhaomu_deploy
+	url = git@github.com:SAILFISH-PTE-LTD/zhaomu_deploy.git

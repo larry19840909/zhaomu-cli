@@ -13,9 +13,7 @@ build/
 # 临时文件
 tmp/
 
-# 私有插件模块
-zhaomu_deploy/
-
+# （zhaomu_deploy 已改为 git submodule 管理）
 # Admin 数据库文件（包含加密后的 API Key）
 admin.db
 *.db
